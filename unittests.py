@@ -9,9 +9,29 @@ logger = logging.getLogger(__name__)
 
 class TestGlobalBeverageCorporationExchange(unittest.TestCase):
 
-    def test_save(self):
+    def test_stock(self):
         GBCE_object = GlobalBeverageCorporationExchange()
-        stock = CommonStock(SYMBOL.TEA, 0, 0, 100)
+        stock = CommonStock(SYMBOL.TEA, 2, 0, 100)
+        dividend = stock.dividend_yield(10)
+        self.assertEqual(dividend, 0.2)
+        pe = stock.pe_ratio(10)
+        self.assertEqual(pe, 5)
+        with self.assertRaises(ValueError):
+            stock.dividend_yield(0)
+        with self.assertRaises(ValueError):
+            stock.pe_ratio(0)
+
+        stock = PreferredStock(SYMBOL.GIN, 8, 2, 100)
+        dividend = stock.dividend_yield(10)
+        self.assertEqual(dividend, 20)
+        with self.assertRaises(ValueError):
+            stock.dividend_yield(0)
+
+
+    def test_exchange(self):
+        GBCE_object = GlobalBeverageCorporationExchange()
+        stock = CommonStock(SYMBOL.TEA, 2, 0, 100)
+        trade = GBCE_object.record_trade(stock, 100, ACTION.BUY, 11.0)
         trade = GBCE_object.record_trade(stock, 100, ACTION.BUY, 11.0)
         self.assertTrue(isinstance(trade, Trade))
         saved_transaction = GBCE_object.get_recent_trades()[0]

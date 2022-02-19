@@ -3,6 +3,7 @@ import logging
 import numpy as np
 import abc
 from enum import Enum
+import utils
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +23,10 @@ class SYMBOL(Enum):
 
 class Trade(object):
 
-    def __init__(self, stock, quantity, buy_sell_indicator, price):
+    def __init__(self, stock, quantity, action, price):
         self.Stock = stock
         self.Quantity = quantity
-        self.BuySellIndicator = buy_sell_indicator
+        self.Action = action
         self.Price = price
         self.TimeStamp = datetime.datetime.utcnow().timestamp()
 
@@ -42,18 +43,21 @@ class Stock(abc.ABC):
     def dividend_yield(self, price):
         pass
 
+    @utils.nonZeroPrice
     def pe_ratio(self, price):
         return price/self.LastDividend if self.LastDividend else 0
 
 
 class CommonStock(Stock):
 
+    @utils.nonZeroPrice
     def dividend_yield(self, price):
         return self.LastDividend/price
 
 
 class PreferredStock(Stock):
 
+    @utils.nonZeroPrice
     def dividend_yield(self, price):
         return (self.FixedDividend * self.ParValue) / price
 
@@ -80,16 +84,20 @@ class GlobalBeverageCorporationExchange(object):
                 last_time_stamp) and ((not symbol) or trade.Stock.Symbol == symbol)]
 
     def get_all_share_index(self):
+        all_share_index = 0
         traded_stocks = set(transaction.Stock for transaction in self._AllTrades)
-        vw_all_stocks = np.array([self.volume_weighted_stock_price(symbol=stock.Symbol) for stock in traded_stocks])
-        all_share_index = vw_all_stocks.prod() ** (1.0 / len(traded_stocks))
-        logger.info(f"all_share_index:{all_share_index}")
+        if traded_stocks:
+            vw_all_stocks = np.array([self.volume_weighted_stock_price(symbol=stock.Symbol) for stock in traded_stocks])
+            all_share_index = vw_all_stocks.prod() ** (1.0 / len(traded_stocks))
+            logger.info(f"all_share_index:{all_share_index}")
         return all_share_index
 
     def volume_weighted_stock_price(self, symbol=None, time_gap_minutes=None):
+        vwsp = 0
         recent_trades = self.get_recent_trades(symbol, time_gap_minutes)
-        total_value = sum((trade.Quantity*trade.Price) for trade in recent_trades)
-        total_quantity = sum(trade.Quantity for trade in recent_trades)
-        vwsp = total_value/total_quantity
-        logger.info(f"vwsp for {symbol}:{vwsp}")
+        if recent_trades:
+            total_value = sum((trade.Quantity*trade.Price) for trade in recent_trades)
+            total_quantity = sum(trade.Quantity for trade in recent_trades)
+            vwsp = total_value/total_quantity
+            logger.info(f"vwsp for {symbol}:{vwsp}")
         return vwsp
